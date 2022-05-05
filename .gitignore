@@ -3,5 +3,6 @@
 
 **/.env
 **/.env.vars
+**/wp-content
 
 !.gitkeep

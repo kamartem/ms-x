@@ -1,0 +1,77 @@
+version: "3.9"
+
+volumes:
+  db-data:
+  wp-src:
+  wp-data:
+#  certbot-etc:
+
+
+x-base: &base
+  restart: unless-stopped
+  env_file:
+    - .env
+
+
+services:
+  nginx:
+    <<: *base
+    image: msn/nginx:latest
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    volumes:
+      - wp-src:/usr/src/wordpress
+      - ./wordpress/wp-config.php:/usr/src/wordpress/wp-config.php
+      - ./wp-content:/var/www/wp-content
+#      - certbot-etc:/etc/letsencrypt
+    ports:
+      - "80:80"
+#      - "443:443"
+    depends_on:
+      - wordpress
+
+  wordpress:
+    <<: *base
+    image: msn/wordpress:latest
+    build:
+      context: ./wordpress
+      dockerfile: ./Dockerfile
+    depends_on:
+      - db
+    environment:
+      WORDPRESS_DB_HOST: "${WORDPRESS_DB_HOST}"
+      WORDPRESS_DB_PASSWORD: "${MYSQL_PASSWORD}"
+      WORDPRESS_DB_NAME: "${MYSQL_DATABASE}"
+      WORDPRESS_DB_USER: "${MYSQL_USER}"
+    volumes:
+      - wp-src:/usr/src/wordpress
+      - ./wordpress/wp-config.php:/usr/src/wordpress/wp-config.php
+      - ./wp-content:/var/www/wp-content
+#      - certbot-etc:/etc/letsencrypt
+
+  db:
+    <<: *base
+    image: mariadb:10.8
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE}"
+      MYSQL_USER: "${MYSQL_USER}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./db/restore/:/docker-entrypoint-initdb.d/:ro
+    ports:
+      - 3306:3306
+    command:
+      - '--default-authentication-plugin=mysql_native_password'
+
+#  certbot:
+#    depends_on:
+#      - webserver
+#    image: certbot/certbot
+#    container_name: certbot
+#    volumes:
+#      - certbot-etc:/etc/letsencrypt
+#      - wordpress:/var/www/html
+#    command: certonly --webroot --webroot-path=/var/www/html --email sammy@example.com --agree-tos --no-eff-email --force-renewal -d example.com -d www.example.com
